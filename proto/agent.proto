@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+//编译
+//protoc --go_out=. proto/*.proto
+
+package myproto;
+option go_package = "./myproto";
+
+enum Status{
+  Init = 0;
+  //  Connect = 1;
+  Close = 2;
+  Live = 3;
+}
+
+message AgentData {
+  uint32 id = 1;//服务ID
+  //  uint32 sid = 2;//连接的索引-貌似不需要
+  uint64 cliId = 3;//客户端ID
+  Status status = 4;
+  //  string ip = 5;//仅连接的时候传值 不再需要IP数据
+  bytes data = 6;
+  bool close = 7;//是否关闭连接=>来自服务器
+  string ws = 8; //接入地址
+  int32 weight = 9;//权重
+}
