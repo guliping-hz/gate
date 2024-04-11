@@ -12,7 +12,10 @@ chmod +xxx "./$exeName"
 ulimit -c unlimited
 export GOTRACEBACK=crash
 
+export GIN_MODE=release
+
 #多个服务只是目录的不同
 $(pwd)/$exeName &
+#$(pwd)/$exeName -env debug
 #$(pwd)/$exeName -env debug &
 
