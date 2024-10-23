@@ -316,6 +316,8 @@ func main() {
 		//}
 	}()
 
+	log.Printf("GIN_MODE:%s\n", os.Getenv("GIN_MODE"))
+
 	isProduct := flag.String("env", "production", "debug/production")
 	flag.Parse()
 
@@ -340,7 +342,7 @@ func main() {
 	}
 
 	if err != nil {
-		mybase.W("err=%s\n", err.Error())
+		mybase.W("err=%s ; create default gate.json5\n", err.Error())
 
 		path, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 		path += "/gate.json5"
@@ -356,9 +358,9 @@ func main() {
   //是否监听websocket
   listen_websocket: true,
   //是否只用有限连接数=连接目标地址
-  is_single: true,
+  is_single: false,
   //走指定连接数的时候，网关的唯一ID。确保多个网关ID不冲突。
-  single_union_id: "1",
+  single_union_id: 1,
   //需要创建的连接数
   connect_cnt: 10,
   //对外开放地址 ws://127.0.0.1:9999/ws，或者是配置在nginx中的代理地址，如果与默认的服务器ws地址一样可不填，如果配置在新的一台服务器，需配置新地址
