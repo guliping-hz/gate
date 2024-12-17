@@ -70,7 +70,17 @@ func (p *PeerListener) OnConnect(peer net2.Conn) {
 	mybase.D("peer OnConnect Client=%v\n", peer.RemoteAddr())
 
 	if InsGateCfg.IsSingle {
-		SendToSingleServer(&myproto.AgentData{
+		singlePointV, ok := InsGateCfg.Id2Client.Load(conn.SessionId())
+		if !ok {
+			return
+		}
+
+		singleP, ok := singlePointV.(*SinglePoint)
+		if !ok {
+			return
+		}
+
+		SendToSingleServer(singleP.Dest, &myproto.AgentData{
 			Id: InsGateCfg.SingleUnionId,
 			//Sid:    p.connectObj.Id,
 			Status: myproto.Status_Init,
@@ -131,8 +141,8 @@ func (p *PeerListener) OnRecvMsg(peer net2.Conn, buf []byte) bool {
 		//mybase.I("recv data=%+v", ad)
 		if ad.Close { //服务器通知关闭客户端连接。
 			if singlePointV, ok := InsGateCfg.Id2Client.LoadAndDelete(ad.CliId); ok {
-				if singlePoint, ok := singlePointV.(*SinglePoint); ok {
-					singlePoint.Src.SafeClose(true)
+				if singleP, ok := singlePointV.(*SinglePoint); ok {
+					singleP.Src.SafeClose(true)
 				}
 			}
 			return true
@@ -140,8 +150,8 @@ func (p *PeerListener) OnRecvMsg(peer net2.Conn, buf []byte) bool {
 
 		buf = ad.Data //更新buff
 		if singlePointV, ok := InsGateCfg.Id2Client.Load(ad.CliId); ok {
-			if singlePoint, ok := singlePointV.(*SinglePoint); ok {
-				clientI = singlePoint.Src
+			if singleP, ok := singlePointV.(*SinglePoint); ok {
+				clientI = singleP.Src
 			}
 		}
 	} else {
