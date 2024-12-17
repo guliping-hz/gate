@@ -70,17 +70,7 @@ func (p *PeerListener) OnConnect(peer net2.Conn) {
 	mybase.D("peer OnConnect Client=%v\n", peer.RemoteAddr())
 
 	if InsGateCfg.IsSingle {
-		singlePointV, ok := InsGateCfg.Id2Client.Load(conn.SessionId())
-		if !ok {
-			return
-		}
-
-		singleP, ok := singlePointV.(*SinglePoint)
-		if !ok {
-			return
-		}
-
-		SendToSingleServer(singleP.Dest, &myproto.AgentData{
+		SendToSingleServer(p.connectObj, &myproto.AgentData{
 			Id: InsGateCfg.SingleUnionId,
 			//Sid:    p.connectObj.Id,
 			Status: myproto.Status_Init,
