@@ -23,6 +23,11 @@ import (
 
 //go mod download github.com/sirupsen/logrus
 
+type SinglePoint struct {
+	Src  net2.Conn
+	Dest *ConnectObj
+}
+
 type GateCfg struct {
 	ListenPort      int    `json:"listen_port"`      //监听端口
 	Address         string `json:"address"`          //指定代理的地址  127.0.0.1:3306
@@ -125,16 +130,20 @@ func (p *PeerListener) OnRecvMsg(peer net2.Conn, buf []byte) bool {
 
 		//mybase.I("recv data=%+v", ad)
 		if ad.Close { //服务器通知关闭客户端连接。
-			if v, ok := InsGateCfg.Id2Client.LoadAndDelete(ad.CliId); ok {
-				if client, ok := v.(net2.Conn); ok {
-					client.SafeClose(true)
+			if singlePointV, ok := InsGateCfg.Id2Client.LoadAndDelete(ad.CliId); ok {
+				if singlePoint, ok := singlePointV.(*SinglePoint); ok {
+					singlePoint.Src.SafeClose(true)
 				}
 			}
 			return true
 		}
 
 		buf = ad.Data //更新buff
-		clientI, ok = InsGateCfg.Id2Client.Load(ad.CliId)
+		if singlePointV, ok := InsGateCfg.Id2Client.Load(ad.CliId); ok {
+			if singlePoint, ok := singlePointV.(*SinglePoint); ok {
+				clientI = singlePoint.Src
+			}
+		}
 	} else {
 		clientI, ok = InsGateCfg.Peer2Client.Load(peer.SessionId())
 	}
@@ -168,7 +177,11 @@ func (o *OnClientImp) OnConnect(conn net2.Conn) {
 
 	if InsGateCfg.IsSingle {
 		//mybase.I("new connected %d", conn.SessionId())
-		InsGateCfg.Id2Client.Store(conn.SessionId(), conn)
+		dest := InsSinglePool.Get(true)
+		InsGateCfg.Id2Client.Store(conn.SessionId(), &SinglePoint{
+			Src:  conn,
+			Dest: dest,
+		})
 	} else {
 		peer := new(net2.ClientSocket)
 		err := peer.Connect(InsGateCfg.Address, time.Second*10, InsPeer, InsGateDT)
@@ -203,15 +216,25 @@ func (o *OnClientImp) OnClose(conn net2.Conn, byLocalNotRemote bool) {
 	//mybase.I("cli:%d OnClose\n", conn.SessionId())
 
 	if InsGateCfg.IsSingle {
+		singlePointV, ok := InsGateCfg.Id2Client.LoadAndDelete(conn.SessionId())
+		if !ok {
+			return
+		}
+
+		singleP, ok := singlePointV.(*SinglePoint)
+		if !ok {
+			return
+		}
+
 		go func() {
-			SendToSingleServer(&myproto.AgentData{
+			SendToSingleServer(singleP.Dest, &myproto.AgentData{
 				Id:     InsGateCfg.SingleUnionId,
 				CliId:  conn.SessionId(),
 				Status: myproto.Status_Close,
 			})
 		}()
 		//移除即可
-		InsGateCfg.Id2Client.Delete(conn.SessionId())
+		//InsGateCfg.Id2Client.Delete(conn.SessionId())
 	} else {
 		peerI, ok := InsGateCfg.Client2Peer.LoadAndDelete(conn.SessionId())
 		if !ok {
@@ -248,11 +271,17 @@ func (o *OnClientImp) OnRecvMsg(conn net2.Conn, buf []byte) bool {
 	mybase.D("Client OnRecvMsg buf[%d]\n", len(buf))
 
 	if InsGateCfg.IsSingle {
-		if _, ok := InsGateCfg.Id2Client.Load(conn.SessionId()); !ok {
+		singlePointV, ok := InsGateCfg.Id2Client.Load(conn.SessionId())
+		if !ok {
 			return false
 		}
 
-		if ok := SendToSingleServer(&myproto.AgentData{
+		singleP, ok := singlePointV.(*SinglePoint)
+		if !ok {
+			return false
+		}
+
+		if ok := SendToSingleServer(singleP.Dest, &myproto.AgentData{
 			Id:     InsGateCfg.SingleUnionId,
 			CliId:  conn.SessionId(),
 			Status: myproto.Status_Live,

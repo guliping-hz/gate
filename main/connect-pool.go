@@ -23,7 +23,7 @@ func PackContentToPackage(bufContent []byte) []byte {
 	return bufPackage //返回成功消息
 }
 
-func SendToSingleServer(message *myproto.AgentData) bool {
+func SendToSingleServer(connect *ConnectObj, message *myproto.AgentData) bool {
 	//connect := InsSinglePool.Get(false) //获取一下当前的ID
 	//message.Sid = connect.Id
 	buf, err := proto.Marshal(message)
@@ -32,7 +32,7 @@ func SendToSingleServer(message *myproto.AgentData) bool {
 	}
 
 	buf = PackContentToPackage(buf)
-	connect := InsSinglePool.Get(true) //取出来
+	//connect := InsSinglePool.Get(true) //取出来
 	ok := connect.Send(buf)
 	if !ok {
 		return false
