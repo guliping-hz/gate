@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"gate/myproto"
@@ -351,7 +350,7 @@ func main() {
 	flag.Parse()
 
 	inProduct := *isProduct == "production"
-	err := mybase.InitLogModule(".", "gate-main", 60, inProduct, logrus.TraceLevel, context.Background())
+	err := mybase.InitLogModule(".", "gate-main", 60, inProduct, logrus.TraceLevel)
 	if err != nil {
 		log.Println("new log error. err=", err)
 		return
